@@ -3,3 +3,4 @@ uvicorn[standard]
 crewai
 pillow
 python-dotenv
+youtube-transcript-api==1.2.4
