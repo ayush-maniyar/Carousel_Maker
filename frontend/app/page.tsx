@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
-).replace(/\\/$/, "");
+).replace(/\/$/, "");
 
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState("https://youtu.be/T-D1OfcDW1M?si=5z6FANfh36MpXBIu");
@@ -287,7 +287,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center justify-items-center">
             {result.files?.map((file: string, idx: number) => {
-              const imageUrl = `${API_BASE_URL}/${file.replace(/^\\/+/, "")}`;
+              const imageUrl = `${API_BASE_URL}/${file.replace(/^\/+/, "")}`;
               return (
                 <div key={idx} className="space-y-2 w-full max-w-sm">
                   <div className="flex justify-between text-[11px] font-mono text-cyan-400 px-1">
