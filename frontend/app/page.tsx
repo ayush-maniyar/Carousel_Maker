@@ -43,14 +43,14 @@ export default function Home() {
     setError("");
     setResult(null);
     setProgress(15);
-    setStatusMessage("EXTRACTING_TRANSCRIPT_VIA_JS_BYPASS...");
+    setStatusMessage("EXTRACTING_YOUTUBE_TRANSCRIPT...");
 
     try {
-      // Step 1: Client/Next.js side transcript extraction bypass
-      const tsResponse = await fetch("/api/transcript", {
+      // Step 1: Fetch the transcript through the backend service
+      const tsResponse = await fetch(`${API_BASE_URL}/transcript`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl }),
+        body: JSON.stringify({ video_url: videoUrl }),
       });
 
       const tsData = await tsResponse.json();
