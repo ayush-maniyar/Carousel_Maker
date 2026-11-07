@@ -56,7 +56,7 @@ export default function Home() {
       const tsData = await tsResponse.json();
 
       if (!tsResponse.ok) {
-        throw new Error(tsData.error || "Could not read YouTube captions.");
+        throw new Error(tsData.detail || tsData.error || "Could not read YouTube captions.");
       }
 
       setProgress(45);
