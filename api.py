@@ -1,3 +1,4 @@
+import logging
 import os
 from urllib.parse import parse_qs, urlparse
 
@@ -9,6 +10,8 @@ from youtube_transcript_api import YouTubeTranscriptApi
 
 from orchestrator import generate_carousel_content
 from renderer import render_carousel_slide
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Carousel Maker API")
 
@@ -89,9 +92,10 @@ def get_transcript(payload: dict):
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("YouTube transcript fetch failed for video ID %s", video_id)
         raise HTTPException(
             status_code=502,
-            detail="Could not retrieve this video's captions. YouTube may be blocking the server or captions may be unavailable.",
+            detail="Could not retrieve this video's captions. Check the Render logs for the underlying YouTubeTranscriptApi error.",
         ) from exc
 
 
