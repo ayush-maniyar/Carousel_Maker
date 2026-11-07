@@ -1,9 +1,11 @@
 import os
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from youtube_transcript_api import YouTubeTranscriptApi
 
 from orchestrator import generate_carousel_content
 from renderer import render_carousel_slide
@@ -46,6 +48,51 @@ class CarouselRequest(BaseModel):
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+def extract_youtube_video_id(video_url: str) -> str:
+    parsed = urlparse(video_url)
+    host = (parsed.hostname or "").lower()
+
+    if host in {"youtu.be", "www.youtu.be"}:
+        video_id = parsed.path.strip("/").split("/")[0]
+    elif host.endswith("youtube.com"):
+        if parsed.path == "/watch":
+            video_id = parse_qs(parsed.query).get("v", [""])[0]
+        else:
+            parts = [part for part in parsed.path.split("/") if part]
+            video_id = parts[1] if len(parts) > 1 and parts[0] in {"shorts", "embed", "live"} else ""
+    else:
+        video_id = ""
+
+    if not video_id or len(video_id) != 11:
+        raise HTTPException(status_code=400, detail="Please provide a valid YouTube video URL.")
+    return video_id
+
+
+@app.post("/transcript")
+def get_transcript(payload: dict):
+    video_url = payload.get("video_url", "")
+    if not isinstance(video_url, str) or not video_url.strip():
+        raise HTTPException(status_code=400, detail="A YouTube video URL is required.")
+
+    video_id = extract_youtube_video_id(video_url.strip())
+    try:
+        transcript = YouTubeTranscriptApi().fetch(video_id)
+        transcript_text = " ".join(
+            item["text"] for item in transcript.to_raw_data()
+            if item.get("text")
+        ).strip()
+        if not transcript_text:
+            raise HTTPException(status_code=404, detail="No transcript is available for this video.")
+        return {"text": transcript_text}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not retrieve this video's captions. YouTube may be blocking the server or captions may be unavailable.",
+        ) from exc
 
 
 @app.post("/generate-carousel")
