@@ -1,25 +1,39 @@
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
 from orchestrator import generate_carousel_content
 from renderer import render_carousel_slide
-import os
 
-app = FastAPI()
+app = FastAPI(title="Carousel Maker API")
 
-# Enable CORS for Next.js communication
+# Set FRONTEND_URL in Render to your deployed Vercel URL.
+# Local development remains supported by the default localhost origin.
+frontend_origins = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=frontend_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount the static directory to serve generated slide images
+# Generated images are served from this directory.
 os.makedirs("output_slides", exist_ok=True)
-app.mount("/output_slides", StaticFiles(directory="output_slides"), name="output_slides")
+app.mount(
+    "/output_slides",
+    StaticFiles(directory="output_slides"),
+    name="output_slides",
+)
+
 
 class CarouselRequest(BaseModel):
     transcript_text: str
@@ -28,21 +42,34 @@ class CarouselRequest(BaseModel):
     colour_scheme: str = "Yellow and Green"
     vibe: str = "modern"
 
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
 @app.post("/generate-carousel")
 def create_carousel(req: CarouselRequest):
     try:
         if not req.transcript_text or len(req.transcript_text.strip()) < 20:
-            raise HTTPException(status_code=400, detail="Transcript text is missing or too short.")
+            raise HTTPException(
+                status_code=400,
+                detail="Transcript text is missing or too short.",
+            )
 
-        # 1. Generate slide content via CrewAI
+        if not os.getenv("OPENROUTER_API_KEY"):
+            raise HTTPException(
+                status_code=500,
+                detail="OPENROUTER_API_KEY is not configured on the backend.",
+            )
+
         carousel_data = generate_carousel_content(
             transcript_text=req.transcript_text,
             persona=req.persona,
             slide_count=req.slide_count,
-            vibe=req.vibe
+            vibe=req.vibe,
         )
 
-        # 2. Render each slide using the visual engine
         rendered_files = []
         slides = carousel_data.get("slides", [])
 
@@ -53,16 +80,17 @@ def create_carousel(req: CarouselRequest):
                 slide_data=slide_data,
                 output_filename=filename,
                 colour_scheme=req.colour_scheme,
-                vibe=req.vibe
+                vibe=req.vibe,
             )
-            # Normalize path for frontend URL consumption
             rendered_files.append(file_path.replace("\\", "/"))
 
         return {
             "status": "success",
             "title": carousel_data.get("title", "Untitled Carousel"),
             "slides_generated": len(rendered_files),
-            "files": rendered_files
+            "files": rendered_files,
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

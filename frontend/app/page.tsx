@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from "react";
 
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+).replace(/\\/$/, "");
+
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState("https://youtu.be/T-D1OfcDW1M?si=5z6FANfh36MpXBIu");
   const [persona, setPersona] = useState("Tech founder, bold hooks, modern typography");
@@ -59,7 +63,7 @@ export default function Home() {
       setStatusMessage("ORCHESTRATING_AI_AGENTS...");
 
       // Step 2: Send transcript text directly to FastAPI backend
-      const response = await fetch("http://127.0.0.1:8000/generate-carousel", {
+      const response = await fetch(`${API_BASE_URL}/generate-carousel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -283,7 +287,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center justify-items-center">
             {result.files?.map((file: string, idx: number) => {
-              const imageUrl = `http://127.0.0.1:8000/${file}`;
+              const imageUrl = `${API_BASE_URL}/${file.replace(/^\\/+/, "")}`;
               return (
                 <div key={idx} className="space-y-2 w-full max-w-sm">
                   <div className="flex justify-between text-[11px] font-mono text-cyan-400 px-1">
