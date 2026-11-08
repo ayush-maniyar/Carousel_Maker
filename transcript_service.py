@@ -27,6 +27,10 @@ class ConsentError(Exception):
     """Raised when the one-time AI transcription consent token is invalid."""
 
 
+class CacheUnavailable(Exception):
+    """Raised when the transcript cache cannot be checked reliably."""
+
+
 def _supadata_headers() -> dict[str, str]:
     api_key = os.getenv("SUPADATA_API_KEY")
     if not api_key:
@@ -72,9 +76,12 @@ def _cache_get(video_id: str, preferred_language: str | None = None) -> dict[str
         response.raise_for_status()
         rows = response.json()
         return rows[0] if rows else None
-    except Exception:
+    except Exception as exc:
         logger.exception("Transcript cache lookup failed for video ID %s", video_id)
-        return None
+        # A cache outage must not be mistaken for a cache miss before costly AI generation.
+        raise CacheUnavailable(
+            "The transcript cache is temporarily unavailable. Please retry shortly."
+        ) from exc
 
 
 def get_cached_transcript(
