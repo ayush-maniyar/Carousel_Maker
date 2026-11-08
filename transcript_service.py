@@ -47,6 +47,7 @@ def get_cached_transcript(video_id: str) -> dict[str, Any] | None:
             params={
                 "video_id": f"eq.{video_id}",
                 "select": "video_id,language,transcript_text,source",
+                "order": "created_at.asc",
                 "limit": "1",
             },
             headers=_cache_headers(),
@@ -101,7 +102,7 @@ def _poll_supadata_job(job_id: str) -> dict[str, Any]:
             return result.get("result") or result
         if status == "failed":
             error = result.get("error") or {}
-            raise TranscriptUnavailable(str(error.get("message") or "Transcript generation failed."))
+            raise RuntimeError(str(error.get("message") or "Transcript generation failed."))
     raise TimeoutError("Supadata transcript job took too long. Please try again.")
 
 
