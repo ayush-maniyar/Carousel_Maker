@@ -145,12 +145,13 @@ class TranscriptServiceTests(unittest.TestCase):
         self.assertTrue(saved)
         response.raise_for_status.assert_called_once()
 
+    @patch.object(service, "_cache_get", return_value=None)
     @patch.object(service.requests, "post")
     @patch.object(service, "_cache_headers", return_value={})
     @patch.object(service, "_table_url", return_value="https://supabase.example/rest/v1/transcripts")
     @patch.object(service, "_cache_configured", return_value=True)
     def test_ai_cache_write_failure_is_not_reported_as_success(
-        self, configured, table_url, headers, post
+        self, configured, table_url, headers, post, cache_get
     ):
         response = Mock(status_code=201)
         response.json.return_value = []
