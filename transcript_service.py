@@ -74,7 +74,7 @@ def cache_transcript(video_id: str, language: str, transcript_text: str, source:
     try:
         response = requests.post(
             url,
-            params={"on_conflict": "video_id"},
+            params={"on_conflict": "video_id,language"},
             headers=_cache_headers(),
             json=payload,
             timeout=15,
@@ -158,17 +158,20 @@ def get_video_transcript(video_id: str, video_url: str, allow_ai_fallback: bool 
             "available_languages": [],
         }
 
-    try:
-        result = fetch_supadata_transcript(video_url, mode="native")
-        source = "native"
-    except TranscriptUnavailable:
-        if not allow_ai_fallback:
+    if allow_ai_fallback:
+        # The frontend only sends this after native mode reported no captions.
+        # Do not repeat the native request: that would spend another credit.
+        result = fetch_supadata_transcript(video_url, mode="generate")
+        source = "ai_generated"
+    else:
+        try:
+            result = fetch_supadata_transcript(video_url, mode="native")
+            source = "native"
+        except TranscriptUnavailable:
             return {
                 "status": "ai_consent_required",
                 "message": "No existing captions were found. AI transcription may use additional Supadata credits. Do you want to continue?",
             }
-        result = fetch_supadata_transcript(video_url, mode="generate")
-        source = "ai_generated"
 
     cache_transcript(video_id, result["language"], result["text"], source)
     return {
