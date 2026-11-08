@@ -65,7 +65,9 @@ class TranscriptServiceTests(unittest.TestCase):
         self.assertEqual(result["source"], "ai_generated")
         self.assertFalse(result["cached"])
         fetch.assert_called_once_with("https://youtu.be/abcdefghijk", mode="generate")
-        cache.assert_called_once()
+        cache.assert_called_once_with(
+            "abcdefghijk", "en", "A sufficiently long generated transcript.", "ai_generated", required=True
+        )
         release.assert_called_once_with("abcdefghijk", "lock-owner")
 
     @patch.object(service, "_wait_for_cached_transcript", return_value={
