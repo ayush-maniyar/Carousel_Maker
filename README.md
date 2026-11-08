@@ -81,4 +81,4 @@ The cache stores one transcript per video ID and language. Native and AI-generat
 
 AI transcription consent tokens expire after 10 minutes and can be used once for the video for which they were issued. A database lease prevents concurrent requests from starting duplicate AI transcription jobs; requests that encounter an active job wait briefly for the shared cache. Supadata polling uses a bounded deadline and retries transient polling failures. Do not blindly retry a transcript-generation submission after a network timeout because the provider may already have accepted it.
 
-Run backend unit tests with `python -m unittest discover -s tests`.
+Run transcript service unit tests with `python -m unittest discover -s tests -p 'test_transcript_service.py' -v`.
