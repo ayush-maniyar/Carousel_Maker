@@ -159,7 +159,7 @@ export default function Home() {
           </h2>
         </div>
         <p className="text-[10px] tracking-[0.25em] font-mono text-cyan-400 uppercase font-semibold">
-          YOUTUBE-TO-CAROUSEL GENERATOR
+          MULTI-AGENT ORCHESTRATOR
         </p>
       </header>
 
