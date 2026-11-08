@@ -7,7 +7,33 @@ create table if not exists public.transcripts (
     primary key (video_id, language)
 );
 
-alter table public.transcripts enable row level security;
+create table if not exists public.transcript_consents (
+    token_hash text primary key,
+    video_id text not null,
+    expires_at timestamptz not null,
+    consumed_at timestamptz,
+    created_at timestamptz not null default now()
+);
 
--- Backend access uses the Supabase service-role key, stored only in Render.
--- Never expose the service-role key in frontend code.
+create index if not exists transcript_consents_expiry_idx
+    on public.transcript_consents (expires_at);
+
+create table if not exists public.transcript_generation_locks (
+    video_id text primary key,
+    owner_token text not null,
+    expires_at timestamptz not null,
+    created_at timestamptz not null default now()
+);
+
+alter table public.transcripts enable row level security;
+alter table public.transcript_consents enable row level security;
+alter table public.transcript_generation_locks enable row level security;
+
+-- Backend-only access. Never expose the service-role key in frontend code.
+revoke all privileges on table public.transcripts from anon, authenticated;
+revoke all privileges on table public.transcript_consents from anon, authenticated;
+revoke all privileges on table public.transcript_generation_locks from anon, authenticated;
+
+grant select, insert, update, delete on table public.transcripts to service_role;
+grant select, insert, update, delete on table public.transcript_consents to service_role;
+grant select, insert, update, delete on table public.transcript_generation_locks to service_role;

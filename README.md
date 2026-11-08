@@ -66,14 +66,19 @@ No license has been specified for this repository yet. Add a license before gran
 
 ## Transcript provider setup (Supadata + optional Supabase cache)
 
-The backend uses Supadata for YouTube captions. It requests `mode=native` first, so it only retrieves existing captions. If none exist, the frontend asks the user before the backend calls `mode=generate`.
+The backend uses Supadata for YouTube captions. It requests `mode=native` first, so it only retrieves existing captions. If none exist, the backend issues a short-lived, single-use consent token. The browser submits that token only after the user approves; the backend validates and consumes it before calling `mode=generate`. This is an anonymous abuse-resistance measure, not proof of a person's identity or a substitute for rate limiting.
 
 Configure these variables in Render (never in frontend code):
 
 - `SUPADATA_API_KEY` — required; Supadata API key.
-- `SUPABASE_URL` — optional; Supabase project URL for persistent transcript caching.
-- `SUPABASE_SERVICE_ROLE_KEY` — optional; Supabase service-role key. Keep this secret and backend-only.
+- `SUPABASE_URL` — required for persistent transcript caching, consent tokens, and generation coordination.
+- `SUPABASE_SERVICE_ROLE_KEY` — required for the same features. Keep this secret and backend-only.
 
-To enable the persistent cache, create a Supabase project, open its SQL Editor, and run the contents of `supabase/transcripts.sql`. If Supabase is not configured, transcript retrieval still works but transcripts will not persist across backend restarts.
+Create a Supabase project, open its SQL Editor, and run the complete contents of `supabase/transcripts.sql`. This creates the transcript cache, one-time consent-token store, and per-video generation lease table. AI transcription is deliberately unavailable unless these backend protections can be stored. Do not run this SQL on a production database until you have reviewed the migration and backed up any existing data.
 
 The cache stores one transcript per video ID and language. Native and AI-generated transcripts are both cached. The frontend accepts the language Supadata actually returns; the existing language is passed to the content model without an intermediate translation call.
+
+
+AI transcription consent tokens expire after 10 minutes and can be used once for the video for which they were issued. A database lease prevents concurrent requests from starting duplicate AI transcription jobs; requests that encounter an active job wait briefly for the shared cache. Supadata polling uses a bounded deadline and retries transient polling failures. Do not blindly retry a transcript-generation submission after a network timeout because the provider may already have accepted it.
+
+Run transcript service unit tests with `python -m unittest discover -s tests -p 'test_transcript_service.py' -v`.
