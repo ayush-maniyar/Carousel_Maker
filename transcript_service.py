@@ -158,8 +158,6 @@ def cache_transcript(
             saved = _cache_get(video_id, language or "und")
             if saved and saved.get("transcript_text") == transcript_text:
                 return True
-        except CacheUnavailable as exc:
-            last_error = exc
 
         if attempt < 2:
             time.sleep(attempt + 1)
