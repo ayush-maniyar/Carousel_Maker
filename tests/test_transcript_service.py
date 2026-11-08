@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import transcript_service as service
 
@@ -105,8 +105,8 @@ class TranscriptServiceTests(unittest.TestCase):
     @patch.object(service, "_supadata_headers", return_value={})
     @patch.object(service.requests, "get")
     def test_poll_retries_temporary_server_error(self, get, headers, sleep):
-        temporary = unittest.mock.Mock(status_code=503)
-        completed = unittest.mock.Mock(status_code=200)
+        temporary = Mock(status_code=503)
+        completed = Mock(status_code=200)
         completed.json.return_value = {
             "status": "completed",
             "result": {"content": "Recovered transcript", "lang": "en"},
