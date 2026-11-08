@@ -1,0 +1,26 @@
+name: Transcript service tests
+
+on:
+  pull_request:
+    paths:
+      - "transcript_service.py"
+      - "tests/**"
+      - ".github/workflows/transcript-tests.yml"
+  push:
+    branches:
+      - "fix/transcript-hardening"
+
+jobs:
+  transcript-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependency
+        run: python -m pip install requests
+      - name: Run transcript unit tests
+        run: python -m unittest discover -s tests -v
