@@ -86,9 +86,19 @@ def get_cached_transcript(
     )
 
 
-def cache_transcript(video_id: str, language: str, transcript_text: str, source: str) -> None:
+def cache_transcript(
+    video_id: str,
+    language: str,
+    transcript_text: str,
+    source: str,
+    *,
+    required: bool = False,
+) -> bool:
+    """Upsert a transcript and verify the stored row when persistence is required."""
     if not _cache_configured():
-        return
+        if required:
+            raise RuntimeError("Supabase is not configured; refusing to lose an AI-generated transcript.")
+        return False
 
     payload = {
         "video_id": video_id,
@@ -100,14 +110,29 @@ def cache_transcript(video_id: str, language: str, transcript_text: str, source:
         response = requests.post(
             _table_url(SUPABASE_TABLE),
             params={"on_conflict": "video_id,language"},
-            headers=_cache_headers("resolution=merge-duplicates,return=minimal"),
+            headers=_cache_headers("resolution=merge-duplicates,return=representation"),
             json=payload,
             timeout=15,
         )
         response.raise_for_status()
-    except Exception:
-        # Do not hide the transcript from the current user if cache storage fails.
-        logger.exception("Transcript cache write failed for video ID %s", video_id)
+        rows = response.json()
+        if not isinstance(rows, list) or not any(
+            isinstance(row, dict)
+            and row.get("video_id") == video_id
+            and (row.get("language") or "und") == (language or "und")
+            and row.get("transcript_text") == transcript_text
+            for row in rows
+        ):
+            raise RuntimeError("Supabase did not confirm that the transcript was saved.")
+        return True
+    except Exception as exc:
+        logger.exception("Transcript cache write or verification failed for video ID %s", video_id)
+        if required:
+            raise RuntimeError(
+                "AI transcription completed, but its transcript could not be confirmed in Supabase. "
+                "The result was not marked successful; please retry after the database issue is resolved."
+            ) from exc
+        return False
 
 
 def _issue_consent_token(video_id: str) -> str:
@@ -351,7 +376,7 @@ def get_video_transcript(
             if cached and cached.get("transcript_text"):
                 return _cached_response(cached)
             result = fetch_supadata_transcript(video_url, mode="generate")
-            cache_transcript(video_id, result["language"], result["text"], "ai_generated")
+            cache_transcript(video_id, result["language"], result["text"], "ai_generated", required=True)
             return {
                 "text": result["text"],
                 "language": result["language"],
