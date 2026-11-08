@@ -118,6 +118,64 @@ class TranscriptServiceTests(unittest.TestCase):
         self.assertEqual(result["content"], "Recovered transcript")
         self.assertEqual(get.call_count, 2)
 
+    @patch.object(service.requests, "post")
+    @patch.object(service, "_cache_headers", return_value={})
+    @patch.object(service, "_table_url", return_value="https://supabase.example/rest/v1/transcripts")
+    @patch.object(service, "_cache_configured", return_value=True)
+    def test_ai_cache_write_requires_confirmed_database_row(
+        self, configured, table_url, headers, post
+    ):
+        response = Mock(status_code=201)
+        response.json.return_value = [{
+            "video_id": "abcdefghijk",
+            "language": "en",
+            "transcript_text": "AI transcript persisted in database.",
+            "source": "ai_generated",
+        }]
+        post.return_value = response
+
+        saved = service.cache_transcript(
+            "abcdefghijk",
+            "en",
+            "AI transcript persisted in database.",
+            "ai_generated",
+            required=True,
+        )
+
+        self.assertTrue(saved)
+        response.raise_for_status.assert_called_once()
+
+    @patch.object(service.requests, "post")
+    @patch.object(service, "_cache_headers", return_value={})
+    @patch.object(service, "_table_url", return_value="https://supabase.example/rest/v1/transcripts")
+    @patch.object(service, "_cache_configured", return_value=True)
+    def test_ai_cache_write_failure_is_not_reported_as_success(
+        self, configured, table_url, headers, post
+    ):
+        response = Mock(status_code=201)
+        response.json.return_value = []
+        post.return_value = response
+
+        with self.assertRaisesRegex(RuntimeError, "could not be confirmed in Supabase"):
+            service.cache_transcript(
+                "abcdefghijk",
+                "en",
+                "AI transcript that was not confirmed.",
+                "ai_generated",
+                required=True,
+            )
+
+    @patch.object(service, "_cache_configured", return_value=False)
+    def test_ai_cache_write_fails_closed_without_supabase(self, configured):
+        with self.assertRaisesRegex(RuntimeError, "Supabase is not configured"):
+            service.cache_transcript(
+                "abcdefghijk",
+                "en",
+                "AI transcript not persisted.",
+                "ai_generated",
+                required=True,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
