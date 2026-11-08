@@ -212,7 +212,7 @@ class TranscriptServiceTests(unittest.TestCase):
     def test_repeated_cache_write_failure_fails_closed(
         self, configured, table_url, headers, post, cache_get, sleep
     ):
-        with self.assertRaisesRegex(RuntimeError, "did not confirm that the transcript was saved"):
+        with self.assertRaisesRegex(RuntimeError, "could not be confirmed in Supabase"):
             service.cache_transcript(
                 "abcdefghijk",
                 "en",
