@@ -155,21 +155,21 @@ export default function Home() {
         <div className="flex items-center space-x-2">
           <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
           <h2 className="text-sm tracking-widest font-black uppercase text-slate-300">
-            COGNIT AI
+            Clip2Carousel
           </h2>
         </div>
         <p className="text-[10px] tracking-[0.25em] font-mono text-cyan-400 uppercase font-semibold">
-          MULTI-AGENT ORCHESTRATOR
+          YOUTUBE-TO-CAROUSEL GENERATOR
         </p>
       </header>
 
       {/* Main Title Banner */}
       <div className="text-center mb-10 space-y-2 relative z-10">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
-          COGNIT AI
+          Clip2Carousel
         </h1>
         <p className="text-xs md:text-sm tracking-[0.3em] font-mono text-slate-400 uppercase">
-          AUTONOMOUS MULTI-AGENT CONTENT ORCHESTRATION
+          TURN YOUTUBE VIDEOS INTO SHAREABLE CAROUSELS
         </p>
       </div>
 
