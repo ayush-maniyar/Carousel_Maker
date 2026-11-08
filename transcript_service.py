@@ -158,6 +158,14 @@ def cache_transcript(
             saved = _cache_get(video_id, language or "und")
             if saved and saved.get("transcript_text") == transcript_text:
                 return True
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "Transcript cache verification attempt %s failed for video ID %s",
+                attempt + 1,
+                video_id,
+                exc_info=True,
+            )
 
         if attempt < 2:
             time.sleep(attempt + 1)
