@@ -29,6 +29,31 @@ def wrap_text(text: str, max_width: int, font: ImageFont.FreeTypeFont) -> list:
     if current_line: lines.append(current_line)
     return lines
 
+def load_font(size: int, vibe: str = "modern") -> ImageFont.ImageFont:
+    """Load a portable font on Linux/Windows, with a guaranteed Pillow fallback."""
+    preferred = "cinzel.ttf" if "medieval" in vibe.lower() else "arial.ttf"
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "assets", "fonts", preferred),
+        os.path.join(os.path.dirname(__file__), "assets", "fonts", "DejaVuSans.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        preferred,
+    ]
+    for font_path in candidates:
+        try:
+            return ImageFont.truetype(font_path, size)
+        except (OSError, IOError):
+            continue
+
+    # Pillow's bundled bitmap font is always available; size is supported by
+    # current Pillow releases, while the TypeError fallback keeps older ones working.
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
 def render_carousel_slide(slide_data: dict, output_filename: str, colour_scheme: str = "Yellow and Green", vibe: str = "modern"):
     width, height = 1080, 1350
     
@@ -58,7 +83,7 @@ def render_carousel_slide(slide_data: dict, output_filename: str, colour_scheme:
         bg_draw.line([600, 300, 1000, 300], fill=symbol_color, width=8)
     elif 'code' in icon_type or 'tech' in icon_type:
         try:
-            bracket_font = ImageFont.truetype("arial.ttf", 350)
+            bracket_font = load_font(350, vibe)
             bg_draw.text((650, 50), "{ }", fill=symbol_color, font=bracket_font)
         except:
             pass
@@ -76,15 +101,9 @@ def render_carousel_slide(slide_data: dict, output_filename: str, colour_scheme:
     card_x1, card_y1, card_x2, card_y2 = 60, 100, 1020, 1270
     ui_draw.rounded_rectangle([card_x1, card_y1, card_x2, card_y2], radius=40, fill=(20, 25, 35, 210), outline=(255, 255, 255, 30), width=2)
 
-    try:
-        font_name = "cinzel.ttf" if "medieval" in vibe.lower() else "arial.ttf"
-        title_font = ImageFont.truetype(font_name, 60)
-        body_font = ImageFont.truetype(font_name, 36)
-        ui_font = ImageFont.truetype(font_name, 24)
-    except IOError:
-        title_font = ImageFont.truetype("arial.ttf", 60)
-        body_font = ImageFont.truetype("arial.ttf", 36)
-        ui_font = ImageFont.truetype("arial.ttf", 24)
+    title_font = load_font(60, vibe)
+    body_font = load_font(36, vibe)
+    ui_font = load_font(24, vibe)
 
     max_text_width = width - 240 
 
