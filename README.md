@@ -1,8 +1,8 @@
-# Carousel Maker
+# Clip2Carousel
 
 Turn video transcripts into polished, AI-generated social media carousels.
 
-Carousel Maker takes transcript text, analyzes its key ideas, plans a slide-by-slide narrative, and generates branded carousel visuals.
+Clip2Carousel takes transcript text, analyzes its key ideas, plans a slide-by-slide narrative, and generates branded carousel visuals.
 
 ## Project structure
 
