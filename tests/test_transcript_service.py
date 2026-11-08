@@ -176,6 +176,53 @@ class TranscriptServiceTests(unittest.TestCase):
                 required=True,
             )
 
+    @patch.object(service.time, "sleep")
+    @patch.object(service, "_cache_get", return_value={
+        "video_id": "abcdefghijk",
+        "language": "en",
+        "transcript_text": "AI transcript persisted in database.",
+        "source": "ai_generated",
+    })
+    @patch.object(service.requests, "post", side_effect=service.requests.Timeout("response timed out"))
+    @patch.object(service, "_cache_headers", return_value={})
+    @patch.object(service, "_table_url", return_value="https://supabase.example/rest/v1/transcripts")
+    @patch.object(service, "_cache_configured", return_value=True)
+    def test_ambiguous_cache_write_is_verified_before_retry(
+        self, configured, table_url, headers, post, cache_get, sleep
+    ):
+        saved = service.cache_transcript(
+            "abcdefghijk",
+            "en",
+            "AI transcript persisted in database.",
+            "ai_generated",
+            required=True,
+        )
+
+        self.assertTrue(saved)
+        post.assert_called_once()
+        cache_get.assert_called_once_with("abcdefghijk", "en")
+
+    @patch.object(service.time, "sleep")
+    @patch.object(service, "_cache_get", return_value=None)
+    @patch.object(service.requests, "post", side_effect=service.requests.ConnectionError("db unavailable"))
+    @patch.object(service, "_cache_headers", return_value={})
+    @patch.object(service, "_table_url", return_value="https://supabase.example/rest/v1/transcripts")
+    @patch.object(service, "_cache_configured", return_value=True)
+    def test_repeated_cache_write_failure_fails_closed(
+        self, configured, table_url, headers, post, cache_get, sleep
+    ):
+        with self.assertRaisesRegex(RuntimeError, "did not confirm that the transcript was saved"):
+            service.cache_transcript(
+                "abcdefghijk",
+                "en",
+                "Transcript that must be saved.",
+                "ai_generated",
+                required=True,
+            )
+
+        self.assertEqual(post.call_count, 3)
+        self.assertEqual(cache_get.call_count, 3)
+
 
 if __name__ == "__main__":
     unittest.main()
