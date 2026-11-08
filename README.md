@@ -62,3 +62,18 @@ Do not commit `.env` files, API keys, credentials, or generated private data. Us
 ## License
 
 No license has been specified for this repository yet. Add a license before granting reuse rights.
+
+
+## Transcript provider setup (Supadata + optional Supabase cache)
+
+The backend uses Supadata for YouTube captions. It requests `mode=native` first, so it only retrieves existing captions. If none exist, the frontend asks the user before the backend calls `mode=generate`.
+
+Configure these variables in Render (never in frontend code):
+
+- `SUPADATA_API_KEY` — required; Supadata API key.
+- `SUPABASE_URL` — optional; Supabase project URL for persistent transcript caching.
+- `SUPABASE_SERVICE_ROLE_KEY` — optional; Supabase service-role key. Keep this secret and backend-only.
+
+To enable the persistent cache, create a Supabase project, open its SQL Editor, and run the contents of `supabase/transcripts.sql`. If Supabase is not configured, transcript retrieval still works but transcripts will not persist across backend restarts.
+
+The cache stores one transcript per video ID and language. Native and AI-generated transcripts are both cached. The frontend accepts the language Supadata actually returns; the existing language is passed to the content model without an intermediate translation call.
