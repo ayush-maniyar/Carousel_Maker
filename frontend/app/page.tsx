@@ -166,10 +166,10 @@ export default function Home() {
       {/* Main Title Banner */}
       <div className="text-center mb-10 space-y-2 relative z-10">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
-          Clip2Carousel
+          Clip2Carousel <span className="text-cyan-300">AI</span>
         </h1>
         <p className="text-xs md:text-sm tracking-[0.3em] font-mono text-slate-400 uppercase">
-          TURN YOUTUBE VIDEOS INTO SHAREABLE CAROUSELS
+          AI-POWERED YOUTUBE-TO-CAROUSEL GENERATOR
         </p>
       </div>
 
