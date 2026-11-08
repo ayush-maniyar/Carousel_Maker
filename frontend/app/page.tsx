@@ -36,7 +36,7 @@ export default function Home() {
     setSparkles(generatedSparkles);
   }, []);
 
-  const handleGenerate = async (e: React.FormEvent, allowAiFallback = false) => {
+  const handleGenerate = async (e: React.FormEvent | React.MouseEvent<HTMLButtonElement>, allowAiFallback = false) => {
     e.preventDefault();
     if (!videoUrl) return;
     setPendingAiConsent(false);
@@ -278,7 +278,7 @@ export default function Home() {
             <div className="font-bold uppercase tracking-wider text-amber-300">No existing captions found</div>
             <p>Supadata can use AI to generate a transcript. This may consume additional credits based on the video length. Nothing will be generated until you approve.</p>
             <div className="flex flex-col sm:flex-row gap-2">
-              <button type="button" onClick={(e) => handleGenerate(e as any, true)} disabled={loading} className="rounded-lg bg-amber-300 text-slate-950 font-bold px-4 py-2 disabled:opacity-50">Continue with AI transcription</button>
+              <button type="button" onClick={(e) => handleGenerate(e, true)} disabled={loading} className="rounded-lg bg-amber-300 text-slate-950 font-bold px-4 py-2 disabled:opacity-50">Continue with AI transcription</button>
               <button type="button" onClick={() => { setPendingAiConsent(false); setStatusMessage("AI_TRANSCRIPTION_CANCELLED"); }} className="rounded-lg border border-amber-700 px-4 py-2">Cancel</button>
             </div>
           </div>
