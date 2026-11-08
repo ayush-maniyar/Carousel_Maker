@@ -90,9 +90,33 @@ class TranscriptServiceTests(unittest.TestCase):
         fetch.assert_not_called()
         wait.assert_called_once()
 
-    def test_video_id_and_language_cache_key_is_documented(self):
-        # The DB primary key is (video_id, language); this guards the expected schema contract.
-        self.assertEqual(service.SUPABASE_TABLE, "transcripts")
+    @patch.object(service, "_cache_get")
+    def test_cache_prefers_requested_language_then_falls_back(self, cache_get):
+        fallback = {"transcript_text": "Cached English transcript.", "language": "en"}
+        cache_get.side_effect = [None, fallback]
+
+        result = service.get_cached_transcript("abcdefghijk", "fr")
+
+        self.assertEqual(result, fallback)
+        self.assertEqual(cache_get.call_args_list[0].args, ("abcdefghijk", "fr"))
+        self.assertEqual(cache_get.call_args_list[1].args, ("abcdefghijk",))
+
+    @patch.object(service.time, "sleep")
+    @patch.object(service, "_supadata_headers", return_value={})
+    @patch.object(service.requests, "get")
+    def test_poll_retries_temporary_server_error(self, get, headers, sleep):
+        temporary = unittest.mock.Mock(status_code=503)
+        completed = unittest.mock.Mock(status_code=200)
+        completed.json.return_value = {
+            "status": "completed",
+            "result": {"content": "Recovered transcript", "lang": "en"},
+        }
+        get.side_effect = [temporary, completed]
+
+        result = service._poll_supadata_job("job-123")
+
+        self.assertEqual(result["content"], "Recovered transcript")
+        self.assertEqual(get.call_count, 2)
 
 
 if __name__ == "__main__":
