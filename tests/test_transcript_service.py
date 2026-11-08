@@ -20,6 +20,20 @@ class TranscriptServiceTests(unittest.TestCase):
         self.assertEqual(result["source"], "ai_generated")
         fetch.assert_not_called()
 
+
+    @patch.object(service, "_issue_consent_token", return_value="one-time-token")
+    @patch.object(service, "fetch_supadata_transcript", side_effect=service.TranscriptUnavailable())
+    @patch.object(service, "get_cached_transcript", return_value=None)
+    def test_cache_miss_and_native_provider_call_are_logged(self, cached, fetch, issue):
+        with self.assertLogs(service.logger, level="INFO") as captured:
+            result = service.get_video_transcript("abcdefghijk", "https://youtu.be/abcdefghijk")
+
+        self.assertEqual(result["status"], "ai_consent_required")
+        messages = "\\n".join(captured.output)
+        self.assertIn("transcript_cache_miss", messages)
+        self.assertIn("supadata_request", messages)
+        self.assertIn("mode=native", messages)
+
     @patch.object(service, "_issue_consent_token", return_value="one-time-token")
     @patch.object(service, "fetch_supadata_transcript", side_effect=service.TranscriptUnavailable())
     @patch.object(service, "get_cached_transcript", return_value=None)
