@@ -101,10 +101,16 @@ def cache_transcript(
     *,
     required: bool = False,
 ) -> bool:
-    """Upsert a transcript and verify the stored row when persistence is required."""
+    """Upsert a transcript and confirm persistence, retrying safely if needed.
+
+    The upsert key is (video_id, language), so repeating the same write is
+    idempotent. After any ambiguous failure, read the row back before retrying.
+    """
     if not _cache_configured():
         if required:
-            raise RuntimeError("Supabase is not configured; refusing to lose an AI-generated transcript.")
+            raise RuntimeError(
+                "Supabase is not configured; refusing to lose an AI-generated transcript."
+            )
         return False
 
     payload = {
@@ -113,34 +119,58 @@ def cache_transcript(
         "transcript_text": transcript_text,
         "source": source,
     }
-    try:
-        response = requests.post(
-            _table_url(SUPABASE_TABLE),
-            params={"on_conflict": "video_id,language"},
-            headers=_cache_headers("resolution=merge-duplicates,return=representation"),
-            json=payload,
-            timeout=15,
-        )
-        response.raise_for_status()
-        rows = response.json()
-        if not isinstance(rows, list) or not any(
-            isinstance(row, dict)
-            and row.get("video_id") == video_id
-            and (row.get("language") or "und") == (language or "und")
-            and row.get("transcript_text") == transcript_text
-            for row in rows
-        ):
-            raise RuntimeError("Supabase did not confirm that the transcript was saved.")
-        return True
-    except Exception as exc:
-        logger.exception("Transcript cache write or verification failed for video ID %s", video_id)
-        if required:
-            raise RuntimeError(
-                "AI transcription completed, but its transcript could not be confirmed in Supabase. "
-                "The result was not marked successful; please retry after the database issue is resolved."
-            ) from exc
-        return False
+    last_error: Exception | None = None
 
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                _table_url(SUPABASE_TABLE),
+                params={"on_conflict": "video_id,language"},
+                headers=_cache_headers("resolution=merge-duplicates,return=representation"),
+                json=payload,
+                timeout=15,
+            )
+            response.raise_for_status()
+            rows = response.json()
+            if isinstance(rows, list) and any(
+                isinstance(row, dict)
+                and row.get("video_id") == video_id
+                and (row.get("language") or "und") == (language or "und")
+                and row.get("transcript_text") == transcript_text
+                for row in rows
+            ):
+                return True
+            last_error = RuntimeError(
+                "Supabase did not return confirmation of the saved transcript."
+            )
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "Transcript cache write attempt %s failed for video ID %s",
+                attempt + 1,
+                video_id,
+                exc_info=True,
+            )
+
+        # The write may have succeeded even if its response was lost or malformed.
+        # Read-after-write prevents unnecessary duplicate work and avoids blind retries.
+        try:
+            saved = _cache_get(video_id, language or "und")
+            if saved and saved.get("transcript_text") == transcript_text:
+                return True
+        except CacheUnavailable as exc:
+            last_error = exc
+
+        if attempt < 2:
+            time.sleep(attempt + 1)
+
+    logger.error("Transcript cache persistence could not be confirmed for video ID %s", video_id)
+    if required:
+        raise RuntimeError(
+            "AI transcription completed, but Supabase did not confirm that the transcript was saved. "
+            "The result was not marked successful. Please retry after the database issue is resolved."
+        ) from last_error
+    return False
 
 def _issue_consent_token(video_id: str) -> str:
     if not _cache_configured():
