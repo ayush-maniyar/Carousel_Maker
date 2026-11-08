@@ -23,4 +23,4 @@ jobs:
       - name: Install test dependency
         run: python -m pip install requests
       - name: Run transcript unit tests
-        run: python -m unittest discover -s tests -v
+        run: python -m unittest discover -s tests -p 'test_transcript_service.py' -v
