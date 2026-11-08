@@ -167,7 +167,7 @@ def cache_transcript(
     logger.error("Transcript cache persistence could not be confirmed for video ID %s", video_id)
     if required:
         raise RuntimeError(
-            "AI transcription completed, but Supabase did not confirm that the transcript was saved. "
+            "AI transcription completed, but its transcript could not be confirmed in Supabase. "
             "The result was not marked successful. Please retry after the database issue is resolved."
         ) from last_error
     return False
