@@ -19,6 +19,7 @@ export default function Home() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
   const [pendingAiConsent, setPendingAiConsent] = useState(false);
+  const [consentToken, setConsentToken] = useState<string | null>(null);
 
   const [sparkles, setSparkles] = useState<
     { id: number; top: string; left: string; size: number; delay: string; duration: string }[]
@@ -36,7 +37,7 @@ export default function Home() {
     setSparkles(generatedSparkles);
   }, []);
 
-  const handleGenerate = async (e: React.FormEvent | React.MouseEvent<HTMLButtonElement>, allowAiFallback = false) => {
+  const handleGenerate = async (e: React.FormEvent | React.MouseEvent<HTMLButtonElement>, approvedToken: string | null = null) => {
     e.preventDefault();
     if (!videoUrl) return;
     setPendingAiConsent(false);
@@ -52,7 +53,7 @@ export default function Home() {
       const tsResponse = await fetch(`${API_BASE_URL}/transcript`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_url: videoUrl, allow_ai_fallback: allowAiFallback }),
+        body: JSON.stringify({ video_url: videoUrl, consent_token: approvedToken }),
       });
 
       const tsData = await tsResponse.json();
@@ -62,12 +63,18 @@ export default function Home() {
       }
 
       if (tsData.status === "ai_consent_required") {
+        setConsentToken(tsData.consent_token);
         setPendingAiConsent(true);
         setStatusMessage("AI_TRANSCRIPTION_CONSENT_REQUIRED");
         setProgress(0);
         return;
       }
 
+      if (tsData.status === "generation_in_progress") {
+        throw new Error(tsData.message || "Transcript generation is already in progress. Please retry shortly.");
+      }
+
+      setConsentToken(null);
       setProgress(45);
       setStatusMessage(`TRANSCRIPT_READY_${(tsData.language || "unknown").toUpperCase()}...`);
 
@@ -278,8 +285,8 @@ export default function Home() {
             <div className="font-bold uppercase tracking-wider text-amber-300">No existing captions found</div>
             <p>Supadata can use AI to generate a transcript. This may consume additional credits based on the video length. Nothing will be generated until you approve.</p>
             <div className="flex flex-col sm:flex-row gap-2">
-              <button type="button" onClick={(e) => handleGenerate(e, true)} disabled={loading} className="rounded-lg bg-amber-300 text-slate-950 font-bold px-4 py-2 disabled:opacity-50">Continue with AI transcription</button>
-              <button type="button" onClick={() => { setPendingAiConsent(false); setStatusMessage("AI_TRANSCRIPTION_CANCELLED"); }} className="rounded-lg border border-amber-700 px-4 py-2">Cancel</button>
+              <button type="button" onClick={(e) => handleGenerate(e, consentToken)} disabled={loading} className="rounded-lg bg-amber-300 text-slate-950 font-bold px-4 py-2 disabled:opacity-50">Continue with AI transcription</button>
+              <button type="button" onClick={() => { setPendingAiConsent(false); setConsentToken(null); setStatusMessage("AI_TRANSCRIPTION_CANCELLED"); }} className="rounded-lg border border-amber-700 px-4 py-2">Cancel</button>
             </div>
           </div>
         )}
