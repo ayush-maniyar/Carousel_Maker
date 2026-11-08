@@ -399,7 +399,10 @@ def get_video_transcript(
 ) -> dict[str, Any]:
     cached = get_cached_transcript(video_id, preferred_language)
     if cached and cached.get("transcript_text"):
+        logger.info("transcript_cache_hit video_id=%s source=%s language=%s", video_id, cached.get("source") or "unknown", cached.get("language") or "und")
         return _cached_response(cached)
+
+    logger.info("transcript_cache_miss video_id=%s", video_id)
 
     if consent_token:
         _consume_consent_token(video_id, consent_token)
@@ -418,8 +421,10 @@ def get_video_transcript(
             cached = get_cached_transcript(video_id, preferred_language)
             if cached and cached.get("transcript_text"):
                 return _cached_response(cached)
+            logger.info("supadata_request video_id=%s mode=generate", video_id)
             result = fetch_supadata_transcript(video_url, mode="generate")
             cache_transcript(video_id, result["language"], result["text"], "ai_generated", required=True)
+            logger.info("transcript_cache_saved video_id=%s source=ai_generated language=%s", video_id, result["language"])
             return {
                 "text": result["text"],
                 "language": result["language"],
@@ -431,6 +436,7 @@ def get_video_transcript(
             _release_generation_lock(video_id, owner)
 
     try:
+        logger.info("supadata_request video_id=%s mode=native", video_id)
         result = fetch_supadata_transcript(video_url, mode="native")
         source = "native"
     except TranscriptUnavailable:
@@ -441,7 +447,8 @@ def get_video_transcript(
             "consent_token": token,
         }
 
-    cache_transcript(video_id, result["language"], result["text"], source)
+    saved = cache_transcript(video_id, result["language"], result["text"], source)
+    logger.info("transcript_cache_saved video_id=%s source=%s language=%s confirmed=%s", video_id, source, result["language"], saved)
     return {
         "text": result["text"],
         "language": result["language"],

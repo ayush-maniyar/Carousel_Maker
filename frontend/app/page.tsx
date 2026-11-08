@@ -7,7 +7,7 @@ const API_BASE_URL = (
 ).replace(/\/$/, "");
 
 export default function Home() {
-  const [videoUrl, setVideoUrl] = useState("https://youtu.be/T-D1OfcDW1M?si=5z6FANfh36MpXBIu");
+  const [videoUrl, setVideoUrl] = useState("");
   const [persona, setPersona] = useState("Tech founder, bold hooks, modern typography");
   const [slideCount, setSlideCount] = useState<number>(5);
   const [colourScheme, setColourScheme] = useState("Yellow and Green");
@@ -188,8 +188,8 @@ export default function Home() {
               required
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://youtube.com/watch?v=..."
-              className="w-full bg-[#121b26] border border-cyan-950 focus:border-cyan-400/80 focus:ring-1 focus:ring-cyan-400 text-slate-200 text-sm rounded-xl px-4 py-3 outline-none transition-all placeholder:text-slate-600 font-mono"
+              placeholder="Enter a YouTube video URL"
+              className="w-full bg-[#121b26] border border-cyan-950 focus:border-cyan-400/80 focus:ring-1 focus:ring-cyan-400 text-slate-200 text-sm rounded-xl px-4 py-3 outline-none transition-all placeholder:text-slate-400 font-mono"
             />
           </div>
 
