@@ -8,18 +8,27 @@ from renderer import load_font, render_carousel_slide
 
 
 class RendererFontTests(unittest.TestCase):
-    def test_load_font_returns_font_when_external_fonts_are_missing(self):
-        with patch("renderer.ImageFont.truetype", side_effect=OSError("font unavailable")):
+    def setUp(self):
+        self.original_truetype = ImageFont.truetype
+
+    def deny_external_font_paths(self, font, size, *args, **kwargs):
+        # Pillow's bundled fallback is passed as an in-memory file, not a path.
+        if isinstance(font, (str, os.PathLike)):
+            raise OSError("external font unavailable")
+        return self.original_truetype(font, size, *args, **kwargs)
+
+    def test_load_font_falls_back_when_external_fonts_are_missing(self):
+        with patch("renderer.ImageFont.truetype", side_effect=self.deny_external_font_paths):
             font = load_font(24, "modern")
         self.assertIsNotNone(font)
         self.assertTrue(hasattr(font, "getbbox"))
 
-    def test_render_slide_succeeds_with_builtin_font_fallback(self):
+    def test_render_slide_succeeds_when_external_fonts_are_missing(self):
         os.makedirs("output_slides", exist_ok=True)
         filename = "renderer_font_fallback_test.png"
         path = os.path.join("output_slides", filename)
         try:
-            with patch("renderer.ImageFont.truetype", side_effect=OSError("font unavailable")):
+            with patch("renderer.ImageFont.truetype", side_effect=self.deny_external_font_paths):
                 result = render_carousel_slide(
                     {
                         "header": "Font fallback test",
