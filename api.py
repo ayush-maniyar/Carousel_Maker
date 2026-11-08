@@ -6,17 +6,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from youtube_transcript_api import YouTubeTranscriptApi
 
 from orchestrator import generate_carousel_content
 from renderer import render_carousel_slide
+from transcript_service import get_video_transcript
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Carousel Maker API")
 
-# Set FRONTEND_URL in Render to your deployed Vercel URL.
-# Local development remains supported by the default localhost origin.
 frontend_origins = [
     origin.strip()
     for origin in os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")
@@ -31,13 +29,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Generated images are served from this directory.
 os.makedirs("output_slides", exist_ok=True)
-app.mount(
-    "/output_slides",
-    StaticFiles(directory="output_slides"),
-    name="output_slides",
-)
+app.mount("/output_slides", StaticFiles(directory="output_slides"), name="output_slides")
+
+
+class TranscriptRequest(BaseModel):
+    video_url: str
+    allow_ai_fallback: bool = False
 
 
 class CarouselRequest(BaseModel):
@@ -74,45 +72,33 @@ def extract_youtube_video_id(video_url: str) -> str:
 
 
 @app.post("/transcript")
-def get_transcript(payload: dict):
-    video_url = payload.get("video_url", "")
-    if not isinstance(video_url, str) or not video_url.strip():
+def get_transcript(payload: TranscriptRequest):
+    if not payload.video_url.strip():
         raise HTTPException(status_code=400, detail="A YouTube video URL is required.")
 
-    video_id = extract_youtube_video_id(video_url.strip())
+    video_id = extract_youtube_video_id(payload.video_url.strip())
     try:
-        transcript = YouTubeTranscriptApi().fetch(video_id)
-        transcript_text = " ".join(
-            item["text"] for item in transcript.to_raw_data()
-            if item.get("text")
-        ).strip()
-        if not transcript_text:
-            raise HTTPException(status_code=404, detail="No transcript is available for this video.")
-        return {"text": transcript_text}
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("YouTube transcript fetch failed for video ID %s", video_id)
-        raise HTTPException(
-            status_code=502,
-            detail="Could not retrieve this video's captions. Check the Render logs for the underlying YouTubeTranscriptApi error.",
-        ) from exc
+        result = get_video_transcript(
+            video_id=video_id,
+            video_url=payload.video_url.strip(),
+            allow_ai_fallback=payload.allow_ai_fallback,
+        )
+        return result
+    except RuntimeError as exc:
+        logger.exception("Supadata transcript request failed for video ID %s", video_id)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
 
 
 @app.post("/generate-carousel")
 def create_carousel(req: CarouselRequest):
     try:
         if not req.transcript_text or len(req.transcript_text.strip()) < 20:
-            raise HTTPException(
-                status_code=400,
-                detail="Transcript text is missing or too short.",
-            )
+            raise HTTPException(status_code=400, detail="Transcript text is missing or too short.")
 
         if not os.getenv("OPENROUTER_API_KEY"):
-            raise HTTPException(
-                status_code=500,
-                detail="OPENROUTER_API_KEY is not configured on the backend.",
-            )
+            raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY is not configured on the backend.")
 
         carousel_data = generate_carousel_content(
             transcript_text=req.transcript_text,
@@ -143,5 +129,6 @@ def create_carousel(req: CarouselRequest):
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception as exc:
+        logger.exception("Carousel generation failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
