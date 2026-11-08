@@ -8,7 +8,7 @@ const API_BASE_URL = (
 
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState("");
-  const [persona, setPersona] = useState("Tech founder, bold hooks, modern typography");
+  const [persona, setPersona] = useState("");
   const [slideCount, setSlideCount] = useState<number>(5);
   const [colourScheme, setColourScheme] = useState("Yellow and Green");
   const [vibe, setVibe] = useState("modern");
@@ -195,13 +195,13 @@ export default function Home() {
 
           <div className="space-y-2">
             <label className="text-xs font-mono font-bold tracking-wider text-cyan-400 uppercase">
-              PERSONA & STYLE DIRECTIVES
+              CONTENT DIRECTION (OPTIONAL)
             </label>
             <textarea
               rows={3}
               value={persona}
               onChange={(e) => setPersona(e.target.value)}
-              placeholder="E.g., High-growth tech founder, concise, bold hooks, aesthetic minimalism..."
+              placeholder="E.g., Explain this topic for beginners, use a friendly tone, and focus on practical takeaways. Leave blank to let AI decide."
               className="w-full bg-[#121b26] border border-cyan-950 focus:border-cyan-400/80 focus:ring-1 focus:ring-cyan-400 text-slate-200 text-sm rounded-xl p-4 outline-none transition-all placeholder:text-slate-600 font-sans leading-relaxed resize-none"
             />
           </div>
