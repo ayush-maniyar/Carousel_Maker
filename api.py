@@ -3,13 +3,14 @@ import os
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import FastAPI, HTTPException
+import requests
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from orchestrator import generate_carousel_content
 from renderer import render_carousel_slide
-from transcript_service import get_video_transcript
+from transcript_service import CacheUnavailable, ConsentError, get_video_transcript
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,8 @@ app.mount("/output_slides", StaticFiles(directory="output_slides"), name="output
 
 class TranscriptRequest(BaseModel):
     video_url: str
-    allow_ai_fallback: bool = False
+    consent_token: str | None = None
+    preferred_language: str | None = None
 
 
 class CarouselRequest(BaseModel):
@@ -57,7 +59,7 @@ def extract_youtube_video_id(video_url: str) -> str:
 
     if host in {"youtu.be", "www.youtu.be"}:
         video_id = parsed.path.strip("/").split("/")[0]
-    elif host.endswith("youtube.com"):
+    elif host == "youtube.com" or host.endswith(".youtube.com"):
         if parsed.path == "/watch":
             video_id = parse_qs(parsed.query).get("v", [""])[0]
         else:
@@ -81,9 +83,18 @@ def get_transcript(payload: TranscriptRequest):
         result = get_video_transcript(
             video_id=video_id,
             video_url=payload.video_url.strip(),
-            allow_ai_fallback=payload.allow_ai_fallback,
+            consent_token=payload.consent_token,
+            preferred_language=payload.preferred_language,
         )
         return result
+    except ConsentError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except CacheUnavailable as exc:
+        logger.exception("Transcript cache unavailable for video ID %s", video_id)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except requests.RequestException as exc:
+        logger.exception("Transcript provider or cache request failed for video ID %s", video_id)
+        raise HTTPException(status_code=502, detail="A transcript service is temporarily unavailable. Please retry.") from exc
     except RuntimeError as exc:
         logger.exception("Supadata transcript request failed for video ID %s", video_id)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
