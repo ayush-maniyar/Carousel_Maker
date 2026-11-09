@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clip2Carousel — Browser Transcript Test</title>
+  <style>
+    body{font:16px system-ui;max-width:760px;margin:40px auto;padding:0 18px;background:#0b1220;color:#e5edf7}
+    input,button{font:inherit;padding:12px;border-radius:8px;border:1px solid #334155}
+    input{width:min(100%,520px);background:#111c2e;color:white} button{background:#38bdf8;color:#07111e;font-weight:700;cursor:pointer}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#111c2e;padding:16px;border-radius:8px;min-height:90px}
+    .muted{color:#a9b8ca}
+  </style>
+</head>
+<body>
+  <h1>Browser-side YouTube transcript test</h1>
+  <p class="muted">Isolated diagnostic page. It does not call Render, generate slides, or change the live app.</p>
+  <label for="video">YouTube video URL</label><br><br>
+  <input id="video" value="https://www.youtube.com/watch?v=Ez8F0nW6S-w&amp;t=187s">
+  <button id="test">Test transcript access</button>
+  <h3 id="status">Ready</h3>
+  <pre id="output">Click the button to check whether this browser can read the video's caption data.</pre>
+  <script>
+    const input = document.getElementById("video");
+    const status = document.getElementById("status");
+    const output = document.getElementById("output");
+    function getVideoId(raw) {
+      const u = new URL(raw);
+      if (u.hostname === "youtu.be" || u.hostname === "www.youtu.be") return u.pathname.split("/").filter(Boolean)[0] || "";
+      if (u.hostname === "youtube.com" || u.hostname.endsWith(".youtube.com")) {
+        if (u.pathname === "/watch") return u.searchParams.get("v") || "";
+        const p = u.pathname.split("/").filter(Boolean);
+        if (["shorts","embed","live"].includes(p[0])) return p[1] || "";
+      }
+      return "";
+    }
+    document.getElementById("test").addEventListener("click", async () => {
+      output.textContent = "";
+      status.textContent = "Testing…";
+      try {
+        const id = getVideoId(input.value.trim());
+        if (!/^[\w-]{11}$/.test(id)) throw new Error("Please enter a valid YouTube video URL.");
+        const player = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            context:{client:{clientName:"IOS",clientVersion:"19.45.4",hl:"en",gl:"US"}},
+            videoId:id
+          })
+        });
+        if (!player.ok) throw new Error("YouTube player request returned HTTP " + player.status);
+        const data = await player.json();
+        const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+        if (!tracks.length) throw new Error("YouTube returned no caption tracks for this video.");
+        const track = tracks.find(t => (t.languageCode || "").startsWith("en")) || tracks[0];
+        const captionUrl = new URL(track.baseUrl);
+        captionUrl.searchParams.set("fmt","json3");
+        const captions = await fetch(captionUrl.toString());
+        if (!captions.ok) throw new Error("Caption request returned HTTP " + captions.status);
+        const json = await captions.json();
+        const text = (json.events || []).flatMap(e => (e.segs || []).map(s => s.utf8 || "")).join(" ").replace(/\s+/g," ").trim();
+        if (!text) throw new Error("Caption response was readable but contained no transcript text.");
+        status.textContent = "SUCCESS — browser can read captions";
+        output.textContent = "Video ID: " + id + "\nLanguage: " + (track.languageCode || "unknown") + "\nTranscript characters: " + text.length + "\n\nPreview:\n" + text.slice(0,2500);
+      } catch (err) {
+        status.textContent = "TEST FAILED";
+        output.textContent = (err && err.name ? err.name + ": " : "") + (err && err.message ? err.message : String(err)) +
+          "\n\nA CORS/network error means this browser could not read YouTube's caption response from this website origin. This does not change the production app.";
+      }
+    });
+  </script>
+</body>
+</html>
